@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>PC Audio</title>
+<style>
+  :root { --bg:#0b0d10; --txt:#e8eaed; --muted:#8b929c; --accent:#3ddc97; --bad:#ff6b6b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,system-ui,sans-serif; }
+  .wrap { min-height:100%; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:22px; padding:32px 20px; text-align:center; }
+  .title { font-size:14px; letter-spacing:.28em; text-transform:uppercase; color:var(--muted); }
+  .spin { width:46px; height:46px; border-radius:50%; border:3px solid #20252c;
+    border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #msg { font-size:15px; color:var(--muted); max-width:320px; line-height:1.6; }
+  .btn { margin-top:6px; padding:12px 22px; border:none; border-radius:12px; cursor:pointer;
+    background:var(--accent); color:#0b0d10; font-weight:700; font-size:15px; display:none; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">PC Audio</div>
+  <div class="spin" id="spin"></div>
+  <div id="msg">Finding your PC&hellip;</div>
+  <button class="btn" id="retry" onclick="go()">Try again</button>
+</div>
+<script>
+  // Pull the current live tunnel URL the PC publishes to current.txt, then forward.
+  const SRC = 'https://api.github.com/repos/onlythebestswfl-ops/pcaudio/contents/current.txt';
+  const msg = document.getElementById('msg');
+  const spin = document.getElementById('spin');
+  const retry = document.getElementById('retry');
+
+  function offline(text) {
+    spin.style.display = 'none';
+    retry.style.display = 'inline-block';
+    msg.innerHTML = text;
+  }
+
+  function go() {
+    spin.style.display = 'block';
+    retry.style.display = 'none';
+    msg.textContent = 'Finding your PC…';
+    fetch(SRC + '?t=' + Date.now(), { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' })
+      .then(r => r.ok ? r.text() : Promise.reject(r.status))
+      .then(u => {
+        u = (u || '').trim();
+        if (/^https:\/\/\S+/.test(u)) location.replace(u);
+        else offline('The PC bridge is not running. Start it on the PC, wait a few seconds, then tap Try again.');
+      })
+      .catch(() => offline('Could not reach the pointer. Check your connection and tap Try again.'));
+  }
+
+  go();
+</script>
+</body>
+</html>
