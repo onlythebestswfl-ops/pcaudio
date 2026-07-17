@@ -31,15 +31,27 @@
   <audio id="player" controls preload="none" playsinline></audio>
   <div id="msg">Loading stream&hellip;</div>
   <div id="url">https://pacific-server-permanent-luggage.trycloudflare.com/</div>
+  <div id="hint" style="font-size:12px;color:#5a616b;max-width:340px;line-height:1.6;margin-top:6px;">Login password is <b>7267</b> &mdash; the page sends it automatically.</div>
   <button class="btn" id="retry" style="display:none" onclick="location.reload()">Retry</button>
 </div>
 <script>
   // URL is injected by bridge.ps1 on every tunnel (re)start.
-  const STREAM = 'https://pacific-server-permanent-luggage.trycloudflare.com/stream.mp3';
+  const BASE   = 'https://pacific-server-permanent-luggage.trycloudflare.com';
+  const PASS   = '7267';
+  const STREAM = BASE + '/stream.mp3';
+  const LOGIN  = BASE + '/login';
   const HEALTH = 'https://pacific-server-permanent-luggage.trycloudflare.com/healthz';
   const player = document.getElementById('player');
   const msg = document.getElementById('msg');
   const retry = document.getElementById('retry');
+
+  async function login() {
+    try {
+      const fd = new FormData();
+      fd.set('password', PASS);
+      await fetch(LOGIN, { method: 'POST', body: fd, credentials: 'include', redirect: 'manual' });
+    } catch (e) {}
+  }
 
   async function check() {
     try {
@@ -56,7 +68,8 @@
   }
 
   (async () => {
-    await login(); if (!await check()) return;
+    await login();
+    if (!await check()) return;
     // Use MediaSource for seamless buffering; fall back to simple <audio src>.
     if (window.MediaSource && MediaSource.isTypeSupported('audio/mpeg')) {
       const ms = new MediaSource();
