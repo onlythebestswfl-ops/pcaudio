@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -11,52 +11,89 @@
   html,body { margin:0; height:100%; background:var(--bg); color:var(--txt);
     font-family:-apple-system,Segoe UI,Roboto,system-ui,sans-serif; }
   .wrap { min-height:100%; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:22px; padding:32px 20px; text-align:center; }
-  .title { font-size:14px; letter-spacing:.28em; text-transform:uppercase; color:var(--muted); }
-  .spin { width:46px; height:46px; border-radius:50%; border:3px solid #20252c;
-    border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  #msg { font-size:15px; color:var(--muted); max-width:320px; line-height:1.6; }
-  .btn { margin-top:6px; padding:12px 22px; border:none; border-radius:12px; cursor:pointer;
-    background:var(--accent); color:#0b0d10; font-weight:700; font-size:15px; display:none; }
+    justify-content:center; gap:18px; padding:32px 20px; text-align:center; }
+  .title { font-size:13px; letter-spacing:.28em; text-transform:uppercase; color:var(--muted); }
+  h1 { margin:0; font-size:22px; font-weight:600; }
+  #msg { font-size:14px; color:var(--muted); max-width:340px; line-height:1.6; }
+  #url { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:#5a6068;
+    word-break:break-all; max-width:340px; line-height:1.5; }
+  audio { width:100%; max-width:340px; margin-top:10px; }
+  .btn { margin-top:6px; padding:11px 20px; border:none; border-radius:11px; cursor:pointer;
+    background:var(--accent); color:#0b0d10; font-weight:700; font-size:14px; }
   a { color:var(--accent); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PC Audio</div>
-  <div class="spin" id="spin"></div>
-  <div id="msg">Finding your PC&hellip;</div>
-  <button class="btn" id="retry" onclick="go()">Try again</button>
+  <div class="title">PC Audio Bridge</div>
+  <h1>Tap play</h1>
+  <audio id="player" controls preload="none" playsinline></audio>
+  <div id="msg">Loading stream&hellip;</div>
+  <div id="url">https://performance-pressing-otherwise-polar.trycloudflare.com/</div>
+  <button class="btn" id="retry" style="display:none" onclick="location.reload()">Retry</button>
 </div>
 <script>
-  // Pull the current live tunnel URL the PC publishes to current.txt, then forward.
-  const SRC = 'https://api.github.com/repos/onlythebestswfl-ops/pcaudio/contents/current.txt';
+  // URL is injected by bridge.ps1 on every tunnel (re)start.
+  const STREAM = 'https://performance-pressing-otherwise-polar.trycloudflare.com/stream.mp3';
+  const HEALTH = 'https://performance-pressing-otherwise-polar.trycloudflare.com/healthz';
+  const player = document.getElementById('player');
   const msg = document.getElementById('msg');
-  const spin = document.getElementById('spin');
   const retry = document.getElementById('retry');
 
-  function offline(text) {
-    spin.style.display = 'none';
-    retry.style.display = 'inline-block';
-    msg.innerHTML = text;
+  async function check() {
+    try {
+      const r = await fetch(HEALTH, { cache: 'no-store' });
+      if (r.ok) { return true; }
+      msg.textContent = 'PC tunnel offline.';
+      retry.style.display = 'inline-block';
+      return false;
+    } catch (e) {
+      msg.textContent = 'PC unreachable. Try again in a moment.';
+      retry.style.display = 'inline-block';
+      return false;
+    }
   }
 
-  function go() {
-    spin.style.display = 'block';
-    retry.style.display = 'none';
-    msg.textContent = 'Finding your PC…';
-    fetch(SRC + '?t=' + Date.now(), { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' })
-      .then(r => r.ok ? r.text() : Promise.reject(r.status))
-      .then(u => {
-        u = (u || '').trim();
-        if (/^https:\/\/\S+/.test(u)) location.replace(u);
-        else offline('The PC bridge is not running. Start it on the PC, wait a few seconds, then tap Try again.');
-      })
-      .catch(() => offline('Could not reach the pointer. Check your connection and tap Try again.'));
-  }
-
-  go();
+  (async () => {
+    if (!await check()) return;
+    // Use MediaSource for seamless buffering; fall back to simple <audio src>.
+    if (window.MediaSource && MediaSource.isTypeSupported('audio/mpeg')) {
+      const ms = new MediaSource();
+      player.src = URL.createObjectURL(ms);
+      player.load();
+      ms.addEventListener('sourceopen', () => {
+        const sb = ms.addSourceBuffer('audio/mpeg');
+        fetch(STREAM).then(async (r) => {
+          const reader = r.body.getReader();
+          let buf = new Uint8Array(0);
+          sb.addEventListener('updateend', push);
+          async function push() {
+            if (sb.updating) return;
+            const { value, done } = await reader.read();
+            if (done) {
+              if (buf.length) { sb.appendBuffer(buf); buf = new Uint8Array(0); }
+              try { ms.endOfStream(); } catch {}
+              return;
+            }
+            const next = new Uint8Array(buf.length + value.length);
+            next.set(buf); next.set(value, buf.length);
+            if (!sb.updating) sb.appendBuffer(next);
+            buf = new Uint8Array(0);
+            if (player.paused) player.play().catch(()=>{});
+          }
+          push();
+        }).catch(() => {
+          // fall back
+          player.src = STREAM;
+          player.play().catch(()=>{ msg.textContent = 'Tap play to start.'; });
+        });
+      });
+      msg.textContent = 'Tap play. Buffering ~3s of audio.';
+    } else {
+      player.src = STREAM;
+      msg.textContent = 'Tap play to start.';
+    }
+  })();
 </script>
 </body>
 </html>
