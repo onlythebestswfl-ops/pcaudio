@@ -30,13 +30,13 @@
   <h1>Tap play</h1>
   <audio id="player" controls preload="none" playsinline></audio>
   <div id="msg">Loading stream&hellip;</div>
-  <div id="url">about:blank/</div>
+  <div id="url">https://pacific-server-permanent-luggage.trycloudflare.com/</div>
   <button class="btn" id="retry" style="display:none" onclick="location.reload()">Retry</button>
 </div>
 <script>
   // URL is injected by bridge.ps1 on every tunnel (re)start.
-  const STREAM = 'about:blank/stream.mp3';
-  const HEALTH = 'about:blank/healthz';
+  const STREAM = 'https://pacific-server-permanent-luggage.trycloudflare.com/stream.mp3';
+  const HEALTH = 'https://pacific-server-permanent-luggage.trycloudflare.com/healthz';
   const player = document.getElementById('player');
   const msg = document.getElementById('msg');
   const retry = document.getElementById('retry');
@@ -56,7 +56,7 @@
   }
 
   (async () => {
-    if (!await check()) return;
+    await login(); if (!await check()) return;
     // Use MediaSource for seamless buffering; fall back to simple <audio src>.
     if (window.MediaSource && MediaSource.isTypeSupported('audio/mpeg')) {
       const ms = new MediaSource();
